@@ -3957,7 +3957,14 @@ int redisIsSupervised(int mode) {
 
     return 0;
 }
-
+void initPersistentMemory(void) {
+	if ((server.vmp = vmem_create("/mnt/pmem/",
+	    						VMEM_MIN_POOL)) == NULL) {
+	    			perror("vmem_create");
+	    			exit(1);
+	    	}
+	server.persistent = 1;
+}
 
 int main(int argc, char **argv) {
     struct timeval tv;
@@ -4094,6 +4101,8 @@ int main(int argc, char **argv) {
     server.supervised = redisIsSupervised(server.supervised_mode);
     int background = server.daemonize && !server.supervised;
     if (background) daemonize();
+
+    initPersistentMemory();
 
     initServer();
     if (background || server.pidfile) createPidFile();

@@ -14,7 +14,9 @@
 
 release_hdr := $(shell sh -c './mkreleasehdr.sh')
 uname_S := $(shell sh -c 'uname -s 2>/dev/null || echo not')
-OPTIMIZATION?=-O2
+#OPTIMIZATION?=-O2
+OPTIMIZATION?=-O0
+
 DEPENDENCY_TARGETS=hiredis linenoise lua geohash-int
 
 # Default settings
@@ -106,6 +108,18 @@ ifeq ($(MALLOC),jemalloc)
 	DEPENDENCY_TARGETS+= jemalloc
 	FINAL_CFLAGS+= -DUSE_JEMALLOC -I../deps/jemalloc/include
 	FINAL_LIBS+= ../deps/jemalloc/lib/libjemalloc.a
+endif
+
+
+ifeq ($(USE_PMDK),yes)
+	DEPENDENCY_TARGETS+= pmdk
+	FINAL_CFLAGS+= -I../deps/pmdk/src/include -I../deps/pmdk/src/libvmem -DUSE_PMDK
+ifeq ($(PMDK_DEBUG),yes)
+	FINAL_LIBS+= ../deps/pmdk/src/debug/libvmem.so 
+else
+	FINAL_LIBS+= ../deps/pmdk/src/nondebug/libvmem.so
+endif
+	FINAL_LIBS+= -ldl
 endif
 
 REDIS_CC=$(QUIET_CC)$(CC) $(FINAL_CFLAGS)

@@ -47,6 +47,7 @@
 #include <netinet/in.h>
 #include <lua.h>
 #include <signal.h>
+#include <libvmem.h>
 
 typedef long long mstime_t; /* millisecond time type. */
 
@@ -795,6 +796,10 @@ struct redisServer {
     int supervised_mode;            /* See SUPERVISED_* */
     int daemonize;                  /* True if running as a daemon */
     clientBufferLimitsConfig client_obuf_limits[CLIENT_TYPE_OBUF_COUNT];
+
+    bool persistent; /* Persistence enabled/disabled */
+    VMEM *vmp;
+
     /* AOF persistence */
     int aof_state;                  /* AOF_(ON|OFF|WAIT_REWRITE) */
     int aof_fsync;                  /* Kind of fsync() policy */

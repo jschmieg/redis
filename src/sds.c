@@ -38,6 +38,9 @@
 #include "sds.h"
 #include "sdsalloc.h"
 
+#include "server.h"
+
+
 static inline int sdsHdrSize(char type) {
     switch(type&SDS_TYPE_MASK) {
         case SDS_TYPE_5:
@@ -80,7 +83,10 @@ static inline char sdsReqType(size_t string_size) {
  * \0 characters in the middle, as the length is stored in the sds header. */
 sds sdsnewlen(const void *init, size_t initlen) {
     void *sh;
+    //VMEM *vmp;
     sds s;
+    size_t size;
+
     char type = sdsReqType(initlen);
     /* Empty strings are usually created in order to append. Use type 8
      * since type 5 is not good at this. */
@@ -88,7 +94,18 @@ sds sdsnewlen(const void *init, size_t initlen) {
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
 
-    sh = s_malloc(hdrlen+initlen+1);
+    size = hdrlen+initlen+1;
+
+    if(server.persistent && size > 64) {
+    	printf("vmem size=%zu\n", size);
+		if ((sh = vmem_malloc(server.vmp, size)) == NULL) {
+				perror("vmem_malloc");
+				exit(1);
+		}
+	} else {
+		printf("sds size=%zu\n", size);
+    	sh = s_malloc(hdrlen+initlen+1);
+    }
     if (!init)
         memset(sh, 0, hdrlen+initlen+1);
     if (sh == NULL) return NULL;
@@ -154,7 +171,22 @@ sds sdsdup(const sds s) {
 /* Free an sds string. No operation is performed if 's' is NULL. */
 void sdsfree(sds s) {
     if (s == NULL) return;
-    s_free((char*)s-sdsHdrSize(s[-1]));
+    size_t size;
+    //size = sdslen(s);
+    size_t initlen = sdslen(s);
+    char type = sdsReqType(initlen);
+	/* Empty strings are usually created in order to append. Use type 8
+	 * since type 5 is not good at this. */
+	if (type == SDS_TYPE_5 && initlen == 0) type = SDS_TYPE_8;
+	int hdrlen = sdsHdrSize(type);
+    size = hdrlen+sdslen(s)+1;
+    if(server.persistent && size>64) {
+    	printf("free vmem %zu\n",size);
+    	vmem_free(server.vmp, (char*)s-sdsHdrSize(s[-1]));
+    } else {
+    	printf("free malloc %zu\n",size);
+    	s_free((char*)s-sdsHdrSize(s[-1]));
+    }
 }
 
 /* Set the sds string length to the length as obtained with strlen(), so
@@ -172,6 +204,7 @@ void sdsfree(sds s) {
  * the output will be "6" as the string was modified but the logical length
  * remains 6 bytes. */
 void sdsupdatelen(sds s) {
+	printf("------------->sdsupdatelen");
     int reallen = strlen(s);
     sdssetlen(s, reallen);
 }
