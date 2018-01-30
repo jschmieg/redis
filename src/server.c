@@ -3751,6 +3751,8 @@ int main(int argc, char **argv) {
     }
 #endif
     err = memkind_create_pmem("/mnt/pmem", PMEM1_MAX_SIZE, &server.pmem_kind1);
+    //err = memkind_create_pmem("/mnt/pmem", 16355443200, &server.pmem_kind1);
+
         if (err) {
         	        perror("memkind_create_pmem()");
         	        fprintf(stderr, "Unable to create pmem partition\n");

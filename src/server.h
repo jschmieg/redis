@@ -81,7 +81,7 @@ typedef long long mstime_t; /* millisecond time type. */
 #define C_OK                    0
 #define C_ERR                   -1
 
-#define PMEM1_MAX_SIZE	(MEMKIND_PMEM_MIN_SIZE * 100)
+#define PMEM1_MAX_SIZE	(MEMKIND_PMEM_MIN_SIZE * 400UL)
 /* Static server configuration */
 #define CONFIG_DEFAULT_HZ        10      /* Time interrupt calls/sec. */
 #define CONFIG_MIN_HZ            1

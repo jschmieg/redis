@@ -215,10 +215,13 @@ static inline void sdssetalloc(sds s, size_t newlen) {
 }
 
 sds sdsnewlen(const void *init, size_t initlen);
+sds sdsnewlenZMalloc(const void *init, size_t initlen);
 sds sdsnew(const char *init);
 sds sdsempty(void);
+sds sdsemptyZMalloc(void);
 sds sdsdup(const sds s);
 void sdsfree(sds s);
+void sdsfreeZMalloc(sds s);
 sds sdsgrowzero(sds s, size_t len);
 sds sdscatlen(sds s, const void *t, size_t len);
 sds sdscat(sds s, const char *t);
@@ -253,6 +256,7 @@ sds sdsjoinsds(sds *argv, int argc, const char *sep, size_t seplen);
 
 /* Low level functions exposed to the user API */
 sds sdsMakeRoomFor(sds s, size_t addlen);
+sds sdsMakeRoomForZMalloc(sds s, size_t addlen);
 void sdsIncrLen(sds s, ssize_t incr);
 sds sdsRemoveFreeSpace(sds s);
 size_t sdsAllocSize(sds s);

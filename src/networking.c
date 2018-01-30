@@ -32,6 +32,7 @@
 #include <sys/uio.h>
 #include <math.h>
 #include <ctype.h>
+#include "sdsalloc.h"
 
 static void setProtocolError(const char *errstr, client *c, long pos);
 
@@ -105,7 +106,7 @@ client *createClient(int fd) {
     c->fd = fd;
     c->name = NULL;
     c->bufpos = 0;
-    c->querybuf = sdsempty();
+    c->querybuf = sdsemptyZMalloc();
     c->pending_querybuf = sdsempty();
     c->querybuf_peak = 0;
     c->reqtype = 0;
@@ -832,7 +833,8 @@ void freeClient(client *c) {
     }
 
     /* Free the query buffer */
-    sdsfree(c->querybuf);
+    //sdsfree(c->querybuf);
+    sdsfreeZMalloc(c->querybuf);
     sdsfree(c->pending_querybuf);
     c->querybuf = NULL;
 
@@ -1138,7 +1140,8 @@ int processInlineBuffer(client *c) {
             sdsfree(argv[j]);
         }
     }
-    zfree(argv);
+    //zfree(argv);
+    s_free(argv);
     return C_OK;
 }
 
@@ -1412,7 +1415,7 @@ void readQueryFromClient(aeEventLoop *el, int fd, void *privdata, int mask) {
 
     qblen = sdslen(c->querybuf);
     if (c->querybuf_peak < qblen) c->querybuf_peak = qblen;
-    c->querybuf = sdsMakeRoomFor(c->querybuf, readlen);
+    c->querybuf = sdsMakeRoomForZMalloc(c->querybuf, readlen);
     nread = read(fd, c->querybuf+qblen, readlen);
     if (nread == -1) {
         if (errno == EAGAIN) {
