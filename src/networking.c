@@ -107,7 +107,7 @@ client *createClient(int fd) {
     c->name = NULL;
     c->bufpos = 0;
     c->querybuf = sdsemptyZMalloc();
-    c->pending_querybuf = sdsempty();
+    c->pending_querybuf = sdsemptyZMalloc();
     c->querybuf_peak = 0;
     c->reqtype = 0;
     c->argc = 0;
@@ -835,7 +835,7 @@ void freeClient(client *c) {
     /* Free the query buffer */
     //sdsfree(c->querybuf);
     sdsfreeZMalloc(c->querybuf);
-    sdsfree(c->pending_querybuf);
+    sdsfreeZMalloc(c->pending_querybuf);
     c->querybuf = NULL;
 
     /* Deallocate structures used to block on blocking ops. */
