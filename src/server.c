@@ -840,7 +840,7 @@ int clientsCronResizeQueryBuffer(client *c) {
     {
         /* Only resize the query buffer if it is actually wasting space. */
         if (sdsavail(c->querybuf) > 1024) {
-            c->querybuf = sdsRemoveFreeSpace(c->querybuf);
+            c->querybuf = sdsRemoveFreeSpaceZMalloc(c->querybuf);
         }
     }
     /* Reset the peak again to capture the peak memory usage in the next

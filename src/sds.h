@@ -259,6 +259,7 @@ sds sdsMakeRoomFor(sds s, size_t addlen);
 sds sdsMakeRoomForZMalloc(sds s, size_t addlen);
 void sdsIncrLen(sds s, ssize_t incr);
 sds sdsRemoveFreeSpace(sds s);
+sds sdsRemoveFreeSpaceZMalloc(sds s);
 size_t sdsAllocSize(sds s);
 void *sdsAllocPtr(sds s);
 
