@@ -220,6 +220,7 @@ sds sdsnew(const char *init);
 sds sdsempty(void);
 sds sdsemptyZMalloc(void);
 sds sdsdup(const sds s);
+sds sdsdupZMalloc(const sds s);
 void sdsfree(sds s);
 void sdsfreeZMalloc(sds s);
 sds sdsgrowzero(sds s, size_t len);

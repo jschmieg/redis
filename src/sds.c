@@ -229,6 +229,11 @@ sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
 }
 
+/* Duplicate an sds string. */
+sds sdsdupZMalloc(const sds s) {
+    return sdsnewlenZMalloc(s, sdslen(s));
+}
+
 /* Free an sds string. No operation is performed if 's' is NULL. */
 void sdsfree(sds s) {
     if (s == NULL) return;
