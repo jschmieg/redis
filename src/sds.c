@@ -38,6 +38,7 @@
 #include <limits.h>
 #include "sds.h"
 #include "sdsalloc.h"
+#include "zmalloc.h"
 
 static inline int sdsHdrSize(char type) {
     switch(type&SDS_TYPE_MASK) {
