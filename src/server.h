@@ -511,11 +511,16 @@ typedef struct redisObject {
 } robj;
 
 typedef struct pmHeader {
-    unsigned type:4;
-    unsigned encoding:4;
-    unsigned lru:LRU_BITS;
-    int dbId;
-    uint64_t valOffset;
+	union {
+		struct {
+			unsigned type:4;
+			unsigned encoding:4;
+			unsigned lru:LRU_BITS;
+			int dbId;
+			uint64_t valOffset;
+		};
+		char size[48];
+	};
 }pmHeader;
 
 /* Macro used to obtain the current LRU clock.

@@ -213,14 +213,27 @@ sds sdsnewlenPM(const void *init, size_t initlen, char isExtended) {
             break;
         }
     }
-    if (initlen && init)
-        memcpy(s, init, initlen);
-    s[initlen] = '\0';
+    if (initlen && init) {
+    	/*
+    	 * When key is allocated - copy it normally
+    	 * When value is allocates - use memcpy persist
+    	 */
+     if (isExtended != 0) {
+    	 //key
+    	 memcpy(s, init, initlen+1);
+     }
+     else
+     {	//value
+    	 pmemobj_memcpy_persist(server.pm_pool, s, init, initlen+1);
+     }
+    }
+    //s[initlen] = '\0';
 
     //pmemobj_persist(server.pm_pool, sh, (hdrlen+initlen+1));
-    if (isExtended == 0) {
+    /*if (isExtended == 1) {
     	pmemobj_flush(server.pm_pool, sh, (hdrlen+initlen+1));
-    }
+
+    }*/
 
     return s;
 }
