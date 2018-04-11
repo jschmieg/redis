@@ -474,11 +474,11 @@ void dictObjectDestructorPM(void *privdata, void *val)
     if (val == NULL)
         return; /* Lazy freeing will set value to NULL. */
 
-    TX_BEGIN(server.pm_pool) {
+    //TX_BEGIN(server.pm_pool) {
         decrRefCountPM(val);
-    } TX_ONABORT {
+    /*} TX_ONABORT {
         serverLog(LL_WARNING,"ERROR: decrementing the PM ref count failed (%s)", __func__);
-    } TX_END
+    } TX_END*/
 }
 #endif
 
@@ -495,7 +495,6 @@ void dictSdsDestructorPM(void *privdata, void *val)
     PMEMoid *kv_PM_oid;
 
     DICT_NOTUSED(privdata);
-
     TX_BEGIN(server.pm_pool) {
         kv_PM_oid = sdsPMEMoidBackReference(val);
         sdsfreePM(val);
@@ -1380,7 +1379,7 @@ void publishActions() {
 /* Indicate that current Redis operation is finished and there will be
  * no more actions */
 void commitRedisOperation() {
-	if (server.cursor_action->counter > 57) {
+	if (server.cursor_action->counter > ACTION_NUMBER-3) {
 		if(!server.cursor_action->next) {
 			server.cursor_action->next = zmalloc(sizeof(struct actionNode));
 			server.cursor_action->next->counter = 0;

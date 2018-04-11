@@ -123,6 +123,10 @@ void set_value_wrapper(uint64_t *ptr, uint64_t value) {
 	pmemobj_set_value(server.pm_pool, &server.cursor_action->actions[server.cursor_action->counter++], ptr, value);
 }
 
+void free_wrapper(PMEMoid oid) {
+	pmemobj_defer_free(server.pm_pool, oid, &server.cursor_action->actions[server.cursor_action->counter++]);
+}
+
 void
 pmemRemoveFromPmemList(PMEMoid kv_PM_oid)
 {

@@ -740,8 +740,10 @@ typedef struct redisOpArray {
 } redisOpArray;
 
 #ifdef USE_PMDK
+#define ACTION_NUMBER 1000
 typedef struct actionNode {
-	struct pobj_action actions[POBJ_MAX_ACTIONS];
+	//struct pobj_action actions[POBJ_MAX_ACTIONS];
+	struct pobj_action actions[ACTION_NUMBER];
 	int counter;
 	struct actionNode *next;
 }actionNode;

@@ -47,6 +47,8 @@ PMEMoid pmemAddToPmemList(void *key, void *val);
 void pmemRemoveFromPmemList(PMEMoid kv_PM_oid);
 void set_value_wrapper(uint64_t *ptr, uint64_t value);
 PMEMoid reserve_wrapper(size_t size, uint64_t type_num);
+void free_wrapper(PMEMoid oid);
+
 #endif
 
 #endif

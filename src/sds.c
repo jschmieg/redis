@@ -274,7 +274,8 @@ void sdsfreePM(sds s) {
     if (server.persistent) {
         oid.off = (uint64_t)((char*)s-sdsHdrSize(s[-1])) - sizeof(PMEMoid) - (uint64_t)server.pm_pool;
         oid.pool_uuid_lo = server.pool_uuid_lo;
-        pmemobj_tx_free(oid);
+        //pmemobj_tx_free(oid);
+        free_wrapper(oid);
     } else {
         s_free((char*)s-sdsHdrSize(s[-1]));
     }
