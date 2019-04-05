@@ -1,5 +1,20 @@
 /* SDSLib 2.0 -- A C dynamic strings library
  *
+ * Copyright 2019 Intel Corporation.
+ *
+ * This software and the related documents are Intel copyrighted materials, and
+ * your use of them is governed by the express license under which they were
+ * provided to you ("License"). Unless the License provides otherwise, you may
+ * not use, modify, copy, publish, distribute, disclose or transmit this
+ * software or the related documents without Intel's prior written permission.
+ *
+ * This software and the related documents are provided as is, with no express
+ * or implied warranties, other than those that are expressly stated in the
+ * License.
+ *
+ * This file incorporates work covered by the following copyright and
+ * permission notice:
+ *
  * Copyright (c) 2006-2015, Salvatore Sanfilippo <antirez at gmail dot com>
  * Copyright (c) 2015, Oran Agra
  * Copyright (c) 2015, Redis Labs, Inc
