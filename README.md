@@ -94,7 +94,17 @@ To compile against jemalloc on Mac OS X systems, use:
 
     % make MALLOC=jemalloc
 
-To compile against memkind, use:
+Buliding using memkind
+----------------------
+
+memkind is a heap manager that enables allocations to memory with different properties.
+Compiling Redis with it can improve performances and memory usage.
+You can read more about it here:
+
+http://memkind.github.io/memkind
+
+In order to compile Redis with memkind support install memkind on your system
+and then use:
 
     % make MALLOC=memkind
 
