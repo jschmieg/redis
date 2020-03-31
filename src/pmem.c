@@ -35,6 +35,7 @@
 #define THRESHOLD_STEP 0.05
 #define THRESHOLD_UP(val)  ((size_t)ceil((1+THRESHOLD_STEP)*val))
 #define THRESHOLD_DOWN(val) ((size_t)floor((1-THRESHOLD_STEP)*val))
+#define ABS_DIFF(a,b) a > b ? a - b : b -a
 
 /* Initialize the pmem threshold. */
 void pmemThresholdInit(void)
@@ -65,22 +66,34 @@ void adjustPmemThresholdCycle(void) {
             size_t total_memory = pmem_memory + dram_memory;
             size_t total_memory_checkpoint = server.pmem_checkpoint_value + server.dram_checkpoint_value;
             // do not modify threshold when change in memory usage is too small
-            if( (long long)fabs((signed long long)total_memory_checkpoint-(signed long long)total_memory) > 100) {
+            if(ABS_DIFF(total_memory_checkpoint, total_memory) > 100) {
+                //printf("difference %lf\n",((long long)fabs((signed long long)total_memory_checkpoint-(signed long long)total_memory)/(float)total_memory_checkpoint));
+                //printf("total_memory_checkpoint=%zu, total_memory=%zu, labs=%ld \n",total_memory_checkpoint,total_memory,ABS_DIFF(total_memory_checkpoint, total_memory));
+                //if ((pmem_memory + dram_memory) != (server.pmem_checkpoint_value + server.dram_checkpoint_value)) {
+                //printf("pmem_memory=%zu, dram_memory=%zu, sum current=%zu, sum checkpoint=%zu\n",pmem_memory,dram_memory,pmem_memory + dram_memory,server.pmem_checkpoint_value + server.dram_checkpoint_value);
+
                 //revert logic to avoid division by zero
                 float setting_state = (float)server.dram_pmem_ratio.pmem_val/server.dram_pmem_ratio.dram_val;
                 float current_state = (float)pmem_memory/dram_memory;
+                //printf("current ratio=%f, target ratio=%f ",current_state,setting_state);
+                size_t threshold = zmalloc_get_threshold();
+                printf("current ratio=%f, current threshold=%zu ",current_state, threshold);
                 if (fabs(setting_state-current_state) > 0.1) {
-                    size_t threshold = zmalloc_get_threshold();
+                    //size_t threshold = zmalloc_get_threshold();
+                    //printf("current threshold=%zu",threshold);
                     if (setting_state < current_state) {
                         size_t higher_threshold = THRESHOLD_UP(threshold);
                         if (higher_threshold > server.dynamic_threshold_max) return;
+                        //printf("increasing threshold\n");
                         zmalloc_set_threshold(higher_threshold);
                     } else {
                         size_t lower_threshold = THRESHOLD_DOWN(threshold);
                         if (lower_threshold < server.dynamic_threshold_min) return;
+                        //printf("decreasing threshold\n");
                         zmalloc_set_threshold(lower_threshold);
                     }
                 }
+                printf("\n");
             }
             server.pmem_checkpoint_value = pmem_memory;
             server.dram_checkpoint_value = dram_memory;
