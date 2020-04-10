@@ -185,6 +185,12 @@ void sdsfree(sds s) {
     s_free((char*)s-sdsHdrSize(s[-1]));
 }
 
+/* Free an sds string from DRAM. No operation is performed if 's' is NULL. */
+void sdsfreedram(sds s) {
+    if (s == NULL) return;
+    s_free_dram((char*)s-sdsHdrSize(s[-1]));
+}
+
 /* Set the sds string length to the length as obtained with strlen(), so
  * considering as content only up to the first null term character.
  *

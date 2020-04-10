@@ -1082,8 +1082,8 @@ void freeClient(client *c) {
     }
 
     /* Free the query buffer */
-    sdsfree(c->querybuf);
-    sdsfree(c->pending_querybuf);
+    sdsfreedram(c->querybuf);
+    sdsfreedram(c->pending_querybuf);
     c->querybuf = NULL;
 
     /* Deallocate structures used to block on blocking ops. */
@@ -1151,7 +1151,7 @@ void freeClient(client *c) {
     zfree(c->argv);
     freeClientMultiState(c);
     sdsfree(c->peerid);
-    zfree(c);
+    zfree_dram(c);
 }
 
 /* Schedule a client to free it at a safe time in the serverCron() function.

@@ -219,7 +219,7 @@ int dictRehash(dict *d, int n) {
 
     /* Check if we already rehashed the whole table... */
     if (d->ht[0].used == 0) {
-        zfree(d->ht[0].table);
+        zfree_dram(d->ht[0].table);
         d->ht[0] = d->ht[1];
         _dictReset(&d->ht[1]);
         d->rehashidx = -1;
@@ -602,7 +602,7 @@ void dictReleaseIterator(dictIterator *iter)
         else
             assert(iter->fingerprint == dictFingerprint(iter->d));
     }
-    zfree(iter);
+    zfree_dram(iter);
 }
 
 /* Return a random entry from the hash table. Useful to
