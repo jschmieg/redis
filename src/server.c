@@ -1153,6 +1153,7 @@ int dictSdsKeyCompare(void *privdata, const void *key1,
     l1 = sdslen((sds)key1);
     l2 = sdslen((sds)key2);
     if (l1 != l2) return 0;
+//    printf("cmp\n");
     return memcmp(key1, key2, l1) == 0;
 }
 
