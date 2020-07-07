@@ -89,7 +89,7 @@ static inline char sdsReqType(size_t string_size) {
  * You can print the string with printf() as there is an implicit \0 at the
  * end of the string. However the string is binary safe and can contain
  * \0 characters in the middle, as the length is stored in the sds header. */
-static sds _sdsnewlen(const void *init, size_t initlen, int on_dram) {
+static sds _sdsnewlen(const void *init, size_t initlen, int on_dram, size_t prefix) {
     void *sh;
     sds s;
     char type = sdsReqType(initlen);
@@ -99,14 +99,14 @@ static sds _sdsnewlen(const void *init, size_t initlen, int on_dram) {
     int hdrlen = sdsHdrSize(type);
     unsigned char *fp; /* flags pointer. */
 
-    sh = (on_dram == SDS_DRAM_VARIANT) ? s_dram_malloc(hdrlen+initlen+1)
-                                       : s_malloc(hdrlen+initlen+1);
+    sh = (on_dram == SDS_DRAM_VARIANT) ? s_dram_malloc(prefix+hdrlen+initlen+1)
+                                       : s_malloc(prefix+hdrlen+initlen+1);
     if (init==SDS_NOINIT)
         init = NULL;
     else if (!init)
-        memset(sh, 0, hdrlen+initlen+1);
+        memset(sh, 0, prefix+hdrlen+initlen+1);
     if (sh == NULL) return NULL;
-    s = (char*)sh+hdrlen;
+    s = (char*)sh+prefix+hdrlen;
     fp = ((unsigned char*)s)-1;
     switch(type) {
         case SDS_TYPE_5: {
@@ -149,11 +149,19 @@ static sds _sdsnewlen(const void *init, size_t initlen, int on_dram) {
 }
 
 sds sdsnewlen(const void *init, size_t initlen) {
-    return _sdsnewlen(init, initlen, SDS_GENERAL_VARIANT);
+    return _sdsnewlen(init, initlen, SDS_GENERAL_VARIANT, 0);
 }
 
 static sds sdsdramnewlen(const void *init, size_t initlen) {
-    return _sdsnewlen(init, initlen, SDS_DRAM_VARIANT);
+    return _sdsnewlen(init, initlen, SDS_DRAM_VARIANT, 0);
+}
+
+sds sdsnewlenWithPrefix(const void *init, size_t initlen, size_t prefix) {
+    return _sdsnewlen(init, initlen, SDS_GENERAL_VARIANT, prefix);
+}
+
+static sds sdsdramnewlenWithPrefix(const void *init, size_t initlen, size_t prefix) {
+    return _sdsnewlen(init, initlen, SDS_DRAM_VARIANT, prefix);
 }
 
 /* Create an empty (zero length) sds string. Even in this case the string
@@ -177,6 +185,10 @@ sds sdsnew(const char *init) {
 /* Duplicate an sds string. */
 sds sdsdup(const sds s) {
     return sdsnewlen(s, sdslen(s));
+}
+
+sds sdsdupWithEntry(const sds s, size_t size) {
+    return sdsnewlenWithPrefix(s, sdslen(s), size);
 }
 
 /* Free an sds string. No operation is performed if 's' is NULL. */
