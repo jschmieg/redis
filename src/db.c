@@ -208,7 +208,7 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
         dictSetVal(db->dict, &auxentry, NULL);
     }
 
-    dictFreeVal(db->dict, &auxentry);
+    //dictFreeVal(db->dict, &auxentry);
 }
 
 /* High level Set operation. This function can be used in order to set
