@@ -1633,8 +1633,15 @@ int processMultibulkBuffer(client *c) {
                 c->querybuf = sdsnewlen(SDS_NOINIT,c->bulklen+2);
                 sdsclear(c->querybuf);
             } else {
-                c->argv[c->argc++] =
-                    createStringObject(c->querybuf+c->qb_pos,c->bulklen);
+                if(c->argc%2) {
+                    c->argv[c->argc++] =
+                        createStringObjectEmbDram(c->querybuf+c->qb_pos,c->bulklen);
+                }
+                else {
+                    c->argv[c->argc++] =
+                        createStringObject(c->querybuf+c->qb_pos,c->bulklen);
+                }
+
                 c->qb_pos += c->bulklen+2;
             }
             c->bulklen = -1;
