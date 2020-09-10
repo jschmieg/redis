@@ -208,6 +208,11 @@ ifeq ($(MALLOC),jemalloc)
 	FINAL_LIBS := ../deps/jemalloc/lib/libjemalloc.a $(FINAL_LIBS)
 endif
 
+ifeq ($(USE_PMDK),yes)
+        FINAL_CFLAGS+= -DUSE_PMDK
+        FINAL_LIBS+= -lpmemobj -lpmem
+endif
+
 ifeq ($(BUILD_TLS),yes)
 	FINAL_CFLAGS+=-DUSE_OPENSSL $(OPENSSL_CFLAGS)
 	FINAL_LDFLAGS+=$(OPENSSL_LDFLAGS)
