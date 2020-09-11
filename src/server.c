@@ -2854,7 +2854,10 @@ void initServer(void) {
     server.clients_paused = 0;
     server.events_processed_while_blocked = 0;
     server.system_memory_size = zmalloc_get_memory_size();
-
+#ifdef USE_PMDK
+    server.pm_file_path = NULL;
+    server.pm_file_size = CONFIG_DEFAULT_PM_FILE_SIZE;
+#endif
     if ((server.tls_port || server.tls_replication || server.tls_cluster)
                 && tlsConfigure(&server.tls_ctx_config) == C_ERR) {
         serverLog(LL_WARNING, "Failed to configure TLS. Check logs for more info.");
@@ -5133,6 +5136,36 @@ int iAmMaster(void) {
             (server.cluster_enabled && nodeIsMaster(server.cluster->myself)));
 }
 
+
+#ifdef USE_PMDK
+void initPersistentMemory(void) {
+    PMEMoid oid;
+    struct redis_pmem_root *root;
+
+    long long start = ustime();
+    char pmfile_hmem[64];
+    bytesToHuman(pmfile_hmem, server.pm_file_size);
+    serverLog(LL_NOTICE,"Start init Persistent memory file %s size %s",
+            server.pm_file_path, pmfile_hmem);
+
+    /* Create new PMEM pool file. */
+    server.pm_pool = pmemobj_create(server.pm_file_path, PM_LAYOUT_NAME, server.pm_file_size, 0666);
+
+    if (server.pm_pool == NULL) {
+        /* Open the existing PMEM pool file. */
+        server.pm_pool = pmemobj_open(server.pm_file_path, PM_LAYOUT_NAME);
+
+        if (server.pm_pool == NULL) {
+            serverLog(LL_WARNING,"Cannot init persistent memory poolset file "
+                "%s size %s", server.pm_file_path, pmfile_hmem);
+            exit(1);
+        }
+    } else {
+
+    }
+}
+#endif
+
 int main(int argc, char **argv) {
     struct timeval tv;
     int j;
@@ -5293,6 +5326,13 @@ int main(int argc, char **argv) {
     }
 
     readOOMScoreAdj();
+
+#ifdef USE_PMDK
+    if (server.pm_file_path) {
+        initPersistentMemory();
+    }
+#endif
+
     initServer();
     if (background || server.pidfile) createPidFile();
     redisSetProcTitle(argv[0]);

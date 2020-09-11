@@ -54,6 +54,15 @@
 #include <systemd/sd-daemon.h>
 #endif
 
+#ifdef USE_PMDK
+#include "libpmemobj.h"
+#define PM_LAYOUT_NAME "store_db"
+POBJ_LAYOUT_BEGIN(store_db);
+POBJ_LAYOUT_TOID(store_db, struct redis_pmem_root);
+POBJ_LAYOUT_TOID(store_db, struct key_val_pair_PM);
+POBJ_LAYOUT_END(store_db);
+#endif
+
 typedef long long mstime_t; /* millisecond time type. */
 typedef long long ustime_t; /* microsecond time type. */
 
@@ -329,6 +338,11 @@ extern int configOOMScoreAdjValuesDefaults[CONFIG_OOM_COUNT];
 
 /* Synchronous read timeout - slave side */
 #define CONFIG_REPL_SYNCIO_TIMEOUT 5
+
+#ifdef USE_PMDK
+#define CONFIG_MIN_PM_FILE_SIZE PMEMOBJ_MIN_POOL
+#define CONFIG_DEFAULT_PM_FILE_SIZE (1024*1024*1024) /* 1GB */
+#endif
 
 /* List related stuff */
 #define LIST_HEAD 0
@@ -1125,7 +1139,13 @@ struct redisServer {
     int io_threads_do_reads;    /* Read and parse from IO threads? */
     int io_threads_active;      /* Is IO threads currently active? */
     long long events_processed_while_blocked; /* processEventsWhileBlocked() */
-
+#ifdef USE_PMDK
+    /* PM parameters */
+    char* pm_file_path;              /* Path to pmem directory */
+    size_t pm_file_size;            /* Limit for pmem pool size */
+    PMEMobjpool *pm_pool;           /* PMEM pool handle */
+    TOID(struct redis_pmem_root) pm_rootoid; /*PMEM root object OID*/
+#endif
     /* RDB / AOF loading information */
     volatile sig_atomic_t loading; /* We are loading data from disk if true */
     off_t loading_total_bytes;

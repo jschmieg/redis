@@ -441,6 +441,20 @@ void loadServerConfigFromString(char *config) {
                     argv[1], strerror(errno));
                 exit(1);
             }
+#ifdef USE_PMDK
+        } else if (!strcasecmp(argv[0],"pmfile") && (argc == 3)) {
+            server.pm_file_path = zstrdup(argv[1]);
+            long long size = memtoll(argv[2],NULL);
+            if (size == 0) {
+                if (access(server.pm_file_path, F_OK) != 0) {
+                    err = "If pmfile size == 0 pmfile must exist prior to "
+                        "server start"; goto loaderr;
+                }
+            } else if (size < CONFIG_MIN_PM_FILE_SIZE) {
+                err = "Invalid pmfile size"; goto loaderr;
+            }
+            server.pm_file_size = size;
+#endif
         } else if (!strcasecmp(argv[0],"logfile") && argc == 2) {
             FILE *logfp;
 
