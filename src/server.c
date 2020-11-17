@@ -2874,12 +2874,21 @@ void initServer(void) {
         exit(1);
     }
     #ifdef USE_PMDK
+    if (server.dbInitialized) {
+        serverLog(LL_NOTICE,"server.dbInitialized true %p",
+            server.rootp->db);
+    }
+    else {        
         TX_BEGIN(server.pm_pool) {
             PMEMoid oid;
             oid = pmemobj_tx_alloc(sizeof(redisDb)*server.dbnum, 0);
             server.db = pmemobj_direct(oid);
             server.rootp->db = server.db;
+            server.dbInitialized = true;
         } TX_END
+        serverLog(LL_NOTICE,"server.dbInitialized false %p",
+            server.rootp->db);
+    }
     #else
         server.db = zmalloc(sizeof(redisDb)*server.dbnum);
     #endif
@@ -5157,6 +5166,7 @@ void initPersistentMemory(void) {
     /* Create new PMEM pool file. */
     server.pm_pool = pmemobj_create(server.pm_file_path, PM_LAYOUT_NAME, server.pm_file_size, 0666);
 
+    /* Pool exists */
     if (server.pm_pool == NULL) {
         serverLog(LL_NOTICE,"server.pm_pool is NULL");
         /* Open the existing PMEM pool file. */
@@ -5168,9 +5178,20 @@ void initPersistentMemory(void) {
         }
         server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
         server.rootp = D_RW(server.pm_rootoid);
+        server.dbInitialized = true;
+        server.oldPoolAddress = server.rootp->oldPoolAddress;
+        serverLog(LL_NOTICE,"server.oldPoolAddress = %p, currentPoolAddress=%p", server.oldPoolAddress, server.pm_pool);
+        /* TODO: store current address safely in pmem pool*/
+        server.rootp->oldPoolAddress = server.pm_pool;
     } else {
+        /*server.oldPoolAddress = server.rootp->oldPoolAddress;
+        serverLog(LL_NOTICE,"server.poolAddress = %p", server.oldPoolAddress);*/
         server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
         server.rootp = D_RW(server.pm_rootoid);
+        server.dbInitialized = false;
+        /* TODO: store current address safely in pmem pool*/ 
+        serverLog(LL_NOTICE,"server.poolAddress = %p", server.pm_pool);
+        server.rootp->oldPoolAddress = server.pm_pool;
     }
 }
 #endif

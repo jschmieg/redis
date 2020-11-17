@@ -691,6 +691,7 @@ typedef struct redisDb {
     struct redis_pmem_root *rootp;
     struct redis_pmem_root {
         redisDb *db;
+        void *oldPoolAddress;       /* Address of old pool*/
     };
 #endif
 
@@ -1152,11 +1153,13 @@ struct redisServer {
     long long events_processed_while_blocked; /* processEventsWhileBlocked() */
 #ifdef USE_PMDK
     /* PM parameters */
-    char* pm_file_path;              /* Path to pmem directory */
+    char* pm_file_path;             /* Path to pmem directory */
     size_t pm_file_size;            /* Limit for pmem pool size */
     PMEMobjpool *pm_pool;           /* PMEM pool handle */
     TOID(struct redis_pmem_root) pm_rootoid; /*PMEM root object OID*/
     struct redis_pmem_root *rootp;
+    bool dbInitialized;             /* RedisDB object is initialized */
+    void* oldPoolAddress;           /* Previous pool address*/
 #endif
     /* RDB / AOF loading information */
     volatile sig_atomic_t loading; /* We are loading data from disk if true */
