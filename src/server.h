@@ -59,7 +59,6 @@
 #define PM_LAYOUT_NAME "store_db"
 POBJ_LAYOUT_BEGIN(store_db);
 POBJ_LAYOUT_TOID(store_db, struct redis_pmem_root);
-POBJ_LAYOUT_TOID(store_db, struct key_val_pair_PM);
 POBJ_LAYOUT_END(store_db);
 #endif
 
@@ -683,6 +682,18 @@ typedef struct redisDb {
     list *defrag_later;         /* List of key names to attempt to defrag one by one, gradually. */
 } redisDb;
 
+#ifdef USE_PMDK
+    /* PM parameters */
+    char* pm_file_path;             /* Path to pmem directory */
+    size_t pm_file_size;            /* Limit for pmem pool size */
+    PMEMobjpool *pm_pool;           /* PMEM pool handle */
+    TOID(struct redis_pmem_root) pm_rootoid; /*PMEM root object OID*/
+    struct redis_pmem_root *rootp;
+    struct redis_pmem_root {
+        redisDb *db;
+    };
+#endif
+
 /* Client MULTI/EXEC state */
 typedef struct multiCmd {
     robj **argv;
@@ -1145,6 +1156,7 @@ struct redisServer {
     size_t pm_file_size;            /* Limit for pmem pool size */
     PMEMobjpool *pm_pool;           /* PMEM pool handle */
     TOID(struct redis_pmem_root) pm_rootoid; /*PMEM root object OID*/
+    struct redis_pmem_root *rootp;
 #endif
     /* RDB / AOF loading information */
     volatile sig_atomic_t loading; /* We are loading data from disk if true */

@@ -444,7 +444,7 @@ void loadServerConfigFromString(char *config) {
 #ifdef USE_PMDK
         } else if (!strcasecmp(argv[0],"pmfile") && (argc == 3)) {
             server.pm_file_path = zstrdup(argv[1]);
-            long long size = memtoll(argv[2],NULL);
+            long unsigned size = memtoll(argv[2],NULL);
             if (size == 0) {
                 if (access(server.pm_file_path, F_OK) != 0) {
                     err = "If pmfile size == 0 pmfile must exist prior to "

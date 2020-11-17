@@ -2873,8 +2873,16 @@ void initServer(void) {
             strerror(errno));
         exit(1);
     }
-    server.db = zmalloc(sizeof(redisDb)*server.dbnum);
-
+    #ifdef USE_PMDK
+        TX_BEGIN(server.pm_pool) {
+            PMEMoid oid;
+            oid = pmemobj_tx_alloc(sizeof(redisDb)*server.dbnum, 0);
+            server.db = pmemobj_direct(oid);
+            server.rootp->db = server.db;
+        } TX_END
+    #else
+        server.db = zmalloc(sizeof(redisDb)*server.dbnum);
+    #endif
     /* Open the TCP listening socket for the user commands. */
     if (server.port != 0 &&
         listenToPort(server.port,server.ipfd,&server.ipfd_count) == C_ERR)
@@ -5140,8 +5148,6 @@ int iAmMaster(void) {
 #ifdef USE_PMDK
 void initPersistentMemory(void) {
     PMEMoid oid;
-    struct redis_pmem_root *root;
-
     long long start = ustime();
     char pmfile_hmem[64];
     bytesToHuman(pmfile_hmem, server.pm_file_size);
@@ -5152,16 +5158,19 @@ void initPersistentMemory(void) {
     server.pm_pool = pmemobj_create(server.pm_file_path, PM_LAYOUT_NAME, server.pm_file_size, 0666);
 
     if (server.pm_pool == NULL) {
+        serverLog(LL_NOTICE,"server.pm_pool is NULL");
         /* Open the existing PMEM pool file. */
-        server.pm_pool = pmemobj_open(server.pm_file_path, PM_LAYOUT_NAME);
-
+        server.pm_pool = pmemobj_open(server.pm_file_path, PM_LAYOUT_NAME);        
         if (server.pm_pool == NULL) {
             serverLog(LL_WARNING,"Cannot init persistent memory poolset file "
                 "%s size %s", server.pm_file_path, pmfile_hmem);
             exit(1);
         }
+        server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
+        server.rootp = D_RW(server.pm_rootoid);
     } else {
-
+        server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
+        server.rootp = D_RW(server.pm_rootoid);
     }
 }
 #endif
