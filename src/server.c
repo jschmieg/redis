@@ -2874,19 +2874,33 @@ void initServer(void) {
         exit(1);
     }
     #ifdef USE_PMDK
+    /* If RedisDB was initilized previously then restore its address*/
     if (server.dbInitialized) {
-        serverLog(LL_NOTICE,"server.dbInitialized true %p",
+        serverLog(LL_NOTICE,"server.dbInitialized was initialized previosly %p",
             server.rootp->db);
+        /* TODO: Store it safely*/
+        server.db = (void *)((uint8_t *)server.rootp->db + server.addressDelta);
+        serverLog(LL_NOTICE,"server.rootp->db = %p, server.addressDelta=%td",
+            server.rootp->db, server.addressDelta);
+        server.rootp->db = server.db;
+        pmemobj_persist(server.pm_pool, server.rootp->db, sizeof(server.rootp->db));
+        serverLog(LL_NOTICE,"redisDb address = %p",
+            server.db);
     }
     else {        
         TX_BEGIN(server.pm_pool) {
             PMEMoid oid;
             oid = pmemobj_tx_alloc(sizeof(redisDb)*server.dbnum, 0);
             server.db = pmemobj_direct(oid);
+            pmemobj_tx_add_range(server.pm_rootoid, 0, sizeof(struct redis_pmem_root));
             server.rootp->db = server.db;
             server.dbInitialized = true;
+            /* Store RedisDB state in root object*/
+            server.rootp->dbInitialized = true;
         } TX_END
-        serverLog(LL_NOTICE,"server.dbInitialized false %p",
+        serverLog(LL_NOTICE,"redisDb address = %p",
+            server.db);
+        serverLog(LL_NOTICE,"server.dbInitialized was not initilized %p",
             server.rootp->db);
     }
     #else
@@ -2919,8 +2933,16 @@ void initServer(void) {
     }
 
     /* Create the Redis databases, and initialize other internal state. */
+    #ifdef USE_PMDK
+        TX_BEGIN(server.pm_pool) {
+            pmemobj_tx_add_range(pmemobj_oid(server.rootp->db), 0, sizeof(redisDb)*server.dbnum);
+    #endif
     for (j = 0; j < server.dbnum; j++) {
-        server.db[j].dict = dictCreate(&dbDictType,NULL);
+        #ifdef USE_PMDK
+            server.db[j].dict = dictCreatePM(&dbDictType,NULL);
+        #else    
+            server.db[j].dict = dictCreate(&dbDictType,NULL);
+        #endif
         server.db[j].expires = dictCreate(&keyptrDictType,NULL);
         server.db[j].expires_cursor = 0;
         server.db[j].blocking_keys = dictCreate(&keylistDictType,NULL);
@@ -2931,6 +2953,9 @@ void initServer(void) {
         server.db[j].defrag_later = listCreate();
         listSetFreeMethod(server.db[j].defrag_later,(void (*)(void*))sdsfree);
     }
+    #ifdef USE_PMDK
+        } TX_END
+    #endif
     evictionPoolAlloc(); /* Initialize the LRU keys pool. */
     server.pubsub_channels = dictCreate(&keylistDictType,NULL);
     server.pubsub_patterns = listCreate();
@@ -5176,22 +5201,25 @@ void initPersistentMemory(void) {
                 "%s size %s", server.pm_file_path, pmfile_hmem);
             exit(1);
         }
-        server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
-        server.rootp = D_RW(server.pm_rootoid);
+        server.pm_rootoid = pmemobj_root(server.pm_pool, sizeof(struct redis_pmem_root));
+        server.rootp = pmemobj_direct(server.pm_rootoid);
         server.dbInitialized = true;
         server.oldPoolAddress = server.rootp->oldPoolAddress;
         serverLog(LL_NOTICE,"server.oldPoolAddress = %p, currentPoolAddress=%p", server.oldPoolAddress, server.pm_pool);
-        /* TODO: store current address safely in pmem pool*/
         server.rootp->oldPoolAddress = server.pm_pool;
-    } else {
+        pmemobj_persist(server.pm_pool, server.rootp->oldPoolAddress, sizeof(server.rootp->oldPoolAddress));
+        server.addressDelta = (void*)server.pm_pool - server.oldPoolAddress;
+        serverLog(LL_NOTICE,"server.addressDelta = %td",
+            server.addressDelta);
+    } else { /* Opening new empty pool*/
         /*server.oldPoolAddress = server.rootp->oldPoolAddress;
         serverLog(LL_NOTICE,"server.poolAddress = %p", server.oldPoolAddress);*/
-        server.pm_rootoid = POBJ_ROOT(server.pm_pool, struct redis_pmem_root);
-        server.rootp = D_RW(server.pm_rootoid);
+        server.pm_rootoid = pmemobj_root(server.pm_pool, sizeof(struct redis_pmem_root));
+        server.rootp = pmemobj_direct(server.pm_rootoid);
         server.dbInitialized = false;
-        /* TODO: store current address safely in pmem pool*/ 
         serverLog(LL_NOTICE,"server.poolAddress = %p", server.pm_pool);
         server.rootp->oldPoolAddress = server.pm_pool;
+        pmemobj_persist(server.pm_pool, server.rootp->oldPoolAddress, sizeof(server.rootp->oldPoolAddress));
     }
 }
 #endif

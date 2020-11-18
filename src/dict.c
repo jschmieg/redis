@@ -50,7 +50,9 @@
 #else
 #include <assert.h>
 #endif
-
+#ifdef USE_PMDK
+#include "libpmemobj.h"
+#endif
 /* Using dictEnableResize() / dictDisableResize() we make possible to
  * enable/disable resizing of the hash table as needed. This is very important
  * for Redis, as we use copy-on-write and don't want to move too much memory
@@ -112,10 +114,20 @@ dict *dictCreate(dictType *type,
         void *privDataPtr)
 {
     dict *d = zmalloc(sizeof(*d));
-
     _dictInit(d,type,privDataPtr);
     return d;
 }
+
+#ifdef USE_PMDK
+/* Create a new hash table in PM*/
+dict *dictCreatePM(dictType *type,
+        void *privDataPtr)
+{
+    dict *d = pmemobj_direct(pmemobj_tx_alloc(sizeof(*d), 1));
+    _dictInit(d,type,privDataPtr);
+    return d;
+}
+#endif
 
 /* Initialize the hash table */
 int _dictInit(dict *d, dictType *type,
