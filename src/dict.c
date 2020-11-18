@@ -124,6 +124,7 @@ dict *dictCreatePM(dictType *type,
         void *privDataPtr)
 {
     dict *d = pmemobj_direct(pmemobj_tx_alloc(sizeof(*d), 1));
+    pmemobj_tx_add_range(pmemobj_oid(d), 0, sizeof(*d));
     _dictInit(d,type,privDataPtr);
     return d;
 }

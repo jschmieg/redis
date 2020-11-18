@@ -2875,10 +2875,9 @@ void initServer(void) {
     }
     #ifdef USE_PMDK
     /* If RedisDB was initilized previously then restore its address*/
-    if (server.dbInitialized) {
+    if (server.rootp->dbInitialized) {
         serverLog(LL_NOTICE,"server.dbInitialized was initialized previosly %p",
             server.rootp->db);
-        /* TODO: Store it safely*/
         server.db = (void *)((uint8_t *)server.rootp->db + server.addressDelta);
         serverLog(LL_NOTICE,"server.rootp->db = %p, server.addressDelta=%td",
             server.rootp->db, server.addressDelta);
@@ -2887,14 +2886,14 @@ void initServer(void) {
         serverLog(LL_NOTICE,"redisDb address = %p",
             server.db);
     }
-    else {        
+    else {
         TX_BEGIN(server.pm_pool) {
             PMEMoid oid;
             oid = pmemobj_tx_alloc(sizeof(redisDb)*server.dbnum, 0);
             server.db = pmemobj_direct(oid);
             pmemobj_tx_add_range(server.pm_rootoid, 0, sizeof(struct redis_pmem_root));
             server.rootp->db = server.db;
-            server.dbInitialized = true;
+            //server.dbInitialized = true;
             /* Store RedisDB state in root object*/
             server.rootp->dbInitialized = true;
         } TX_END
@@ -2936,10 +2935,18 @@ void initServer(void) {
     #ifdef USE_PMDK
         TX_BEGIN(server.pm_pool) {
             pmemobj_tx_add_range(pmemobj_oid(server.rootp->db), 0, sizeof(redisDb)*server.dbnum);
+            pmemobj_tx_add_range(pmemobj_oid(server.rootp), 0, sizeof(server.rootp));
     #endif
     for (j = 0; j < server.dbnum; j++) {
         #ifdef USE_PMDK
-            server.db[j].dict = dictCreatePM(&dbDictType,NULL);
+            if(!server.rootp->dictInitialized) {                
+                server.db[j].dict = dictCreatePM(&dbDictType,NULL);
+                serverLog(LL_NOTICE,"dict[%d] not initialized, new allocated = %p", j, server.db[j].dict);
+            }
+            else {
+                server.db[j].dict = (void *)((uint8_t *)server.rootp->db[j].dict + server.addressDelta);
+                serverLog(LL_NOTICE,"dict[%d] was initialized, restored = %p", j, server.db[j].dict);
+            }            
         #else    
             server.db[j].dict = dictCreate(&dbDictType,NULL);
         #endif
@@ -2954,6 +2961,7 @@ void initServer(void) {
         listSetFreeMethod(server.db[j].defrag_later,(void (*)(void*))sdsfree);
     }
     #ifdef USE_PMDK
+        server.rootp->dictInitialized = true;
         } TX_END
     #endif
     evictionPoolAlloc(); /* Initialize the LRU keys pool. */
@@ -5178,7 +5186,6 @@ int iAmMaster(void) {
             (server.cluster_enabled && nodeIsMaster(server.cluster->myself)));
 }
 
-
 #ifdef USE_PMDK
 void initPersistentMemory(void) {
     PMEMoid oid;
@@ -5203,23 +5210,23 @@ void initPersistentMemory(void) {
         }
         server.pm_rootoid = pmemobj_root(server.pm_pool, sizeof(struct redis_pmem_root));
         server.rootp = pmemobj_direct(server.pm_rootoid);
-        server.dbInitialized = true;
+        //server.dbInitialized = server.rootp->dbInitialized;
         server.oldPoolAddress = server.rootp->oldPoolAddress;
         serverLog(LL_NOTICE,"server.oldPoolAddress = %p, currentPoolAddress=%p", server.oldPoolAddress, server.pm_pool);
         server.rootp->oldPoolAddress = server.pm_pool;
-        pmemobj_persist(server.pm_pool, server.rootp->oldPoolAddress, sizeof(server.rootp->oldPoolAddress));
+        pmemobj_persist(server.pm_pool, server.rootp, sizeof(server.rootp));
         server.addressDelta = (void*)server.pm_pool - server.oldPoolAddress;
         serverLog(LL_NOTICE,"server.addressDelta = %td",
             server.addressDelta);
     } else { /* Opening new empty pool*/
-        /*server.oldPoolAddress = server.rootp->oldPoolAddress;
-        serverLog(LL_NOTICE,"server.poolAddress = %p", server.oldPoolAddress);*/
         server.pm_rootoid = pmemobj_root(server.pm_pool, sizeof(struct redis_pmem_root));
         server.rootp = pmemobj_direct(server.pm_rootoid);
-        server.dbInitialized = false;
+        //server.dbInitialized = false;
+        server.rootp->dbInitialized = false;
+        server.rootp->dictInitialized = false;
         serverLog(LL_NOTICE,"server.poolAddress = %p", server.pm_pool);
         server.rootp->oldPoolAddress = server.pm_pool;
-        pmemobj_persist(server.pm_pool, server.rootp->oldPoolAddress, sizeof(server.rootp->oldPoolAddress));
+        pmemobj_persist(server.pm_pool, server.rootp, sizeof(server.rootp));
     }
 }
 #endif

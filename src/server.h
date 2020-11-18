@@ -693,6 +693,7 @@ typedef struct redisDb {
         redisDb *db;
         void *oldPoolAddress;       /* Address of old pool*/
         bool dbInitialized;         /* Is RedisDB initialized*/
+        bool dictInitialized;       /* Is dictionary initialized*/
     };
 #endif
 
@@ -1159,7 +1160,7 @@ struct redisServer {
     PMEMobjpool *pm_pool;           /* PMEM pool handle */
     PMEMoid pm_rootoid;             /* PMEM root object OID*/
     struct redis_pmem_root *rootp;
-    bool dbInitialized;             /* RedisDB object is initialized */
+    //bool dbInitialized;             /* RedisDB object is initialized */
     void* oldPoolAddress;           /* Previous pool address*/
     ptrdiff_t addressDelta;         /* Difference in pointers beetwen old and new mappings*/
 #endif
