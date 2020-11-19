@@ -2946,7 +2946,7 @@ void initServer(void) {
             else {
                 server.db[j].dict = (void *)((uint8_t *)server.rootp->db[j].dict + server.addressDelta);
                 serverLog(LL_NOTICE,"dict[%d] was initialized, restored = %p", j, server.db[j].dict);
-            }            
+            }
         #else    
             server.db[j].dict = dictCreate(&dbDictType,NULL);
         #endif
@@ -5188,7 +5188,6 @@ int iAmMaster(void) {
 
 #ifdef USE_PMDK
 void initPersistentMemory(void) {
-    PMEMoid oid;
     long long start = ustime();
     char pmfile_hmem[64];
     bytesToHuman(pmfile_hmem, server.pm_file_size);

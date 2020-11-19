@@ -154,6 +154,10 @@ dict *dictCreatePM(dictType *type, void *privDataPtr);
 #endif
 int dictExpand(dict *d, unsigned long size);
 int dictAdd(dict *d, void *key, void *val);
+#ifdef USE_PMDK
+int dictAddPM(dict *d, void *key, void *val);
+dictEntry *dictAddRawPM(dict *d, void *key, dictEntry **existing);
+#endif
 dictEntry *dictAddRaw(dict *d, void *key, dictEntry **existing);
 dictEntry *dictAddOrFind(dict *d, void *key);
 int dictReplace(dict *d, void *key, void *val);

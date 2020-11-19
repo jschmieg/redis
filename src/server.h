@@ -1832,8 +1832,14 @@ void freeHashObject(robj *o);
 robj *createObject(int type, void *ptr);
 robj *createStringObject(const char *ptr, size_t len);
 robj *createRawStringObject(const char *ptr, size_t len);
+#ifdef USE_PMDK
+robj *createRawStringObjectPM(const char *ptr, size_t len);
+#endif
 robj *createEmbeddedStringObject(const char *ptr, size_t len);
 robj *dupStringObject(const robj *o);
+#ifdef USE_PMDK
+robj *dupStringObjectPM(const robj *o);
+#endif
 int isSdsRepresentableAsLongLong(sds s, long long *llval);
 int isObjectRepresentableAsLongLong(robj *o, long long *llongval);
 robj *tryObjectEncoding(robj *o);

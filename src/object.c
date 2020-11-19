@@ -36,6 +36,9 @@
 #define strtold(a,b) ((long double)strtod((a),(b)))
 #endif
 
+#ifdef USE_PMDK
+#include "libpmemobj.h"
+#endif
 /* ===================== Creation and parsing of objects ==================== */
 
 robj *createObject(int type, void *ptr) {
@@ -55,6 +58,27 @@ robj *createObject(int type, void *ptr) {
     return o;
 }
 
+#ifdef USE_PMDK
+robj *createObjectPM(int type, void *ptr) {
+    PMEMoid oid;
+    robj *o;
+    oid = pmemobj_tx_alloc(sizeof(*o), 4);
+    o = pmemobj_direct(oid);
+    o->type = type;
+    o->encoding = OBJ_ENCODING_RAW;
+    o->ptr = ptr;
+    o->refcount = 1;
+
+    /* Set the LRU to the current lruclock (minutes resolution), or
+     * alternatively the LFU counter. */
+    if (server.maxmemory_policy & MAXMEMORY_FLAG_LFU) {
+        o->lru = (LFUGetTimeInMinutes()<<8) | LFU_INIT_VAL;
+    } else {
+        o->lru = LRU_CLOCK();
+    }
+    return o;
+}
+#endif
 /* Set a special refcount in the object to make it "shared":
  * incrRefCount and decrRefCount() will test for this special refcount
  * and will not touch the object. This way it is free to access shared
@@ -77,6 +101,14 @@ robj *makeObjectShared(robj *o) {
 robj *createRawStringObject(const char *ptr, size_t len) {
     return createObject(OBJ_STRING, sdsnewlen(ptr,len));
 }
+
+#ifdef USE_PMDK
+/* Create a string object with encoding OBJ_ENCODING_RAW, that is a plain
+ * string object where o->ptr points to a proper sds string. */
+robj *createRawStringObjectPM(const char *ptr, size_t len) {
+    return createObjectPM(OBJ_STRING, sdsnewlen(ptr,len));
+}
+#endif
 
 /* Create a string object with encoding OBJ_ENCODING_EMBSTR, that is
  * an object where the sds string is actually an unmodifiable string
@@ -210,6 +242,37 @@ robj *dupStringObject(const robj *o) {
         break;
     }
 }
+
+#ifdef USE_PMDK
+/* Duplicate a string object, with the guarantee that the returned object
+ * has the same encoding as the original one.
+ *
+ * This function also guarantees that duplicating a small integer object
+ * (or a string object that contains a representation of a small integer)
+ * will always result in a fresh object that is unshared (refcount == 1).
+ *
+ * The resulting object always has refcount set to 1. */
+robj *dupStringObjectPM(const robj *o) {
+    robj *d;
+
+    serverAssert(o->type == OBJ_STRING);
+
+    switch(o->encoding) {
+    case OBJ_ENCODING_RAW:
+        return createRawStringObjectPM(o->ptr,sdslen(o->ptr));
+    case OBJ_ENCODING_EMBSTR:
+        return createEmbeddedStringObject(o->ptr,sdslen(o->ptr));
+    case OBJ_ENCODING_INT:
+        d = createObject(OBJ_STRING, NULL);
+        d->encoding = OBJ_ENCODING_INT;
+        d->ptr = o->ptr;
+        return d;
+    default:
+        serverPanic("Wrong encoding.");
+        break;
+    }
+}
+#endif
 
 robj *createQuicklistObject(void) {
     quicklist *l = quicklistCreate();

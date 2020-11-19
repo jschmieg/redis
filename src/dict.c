@@ -286,6 +286,66 @@ int dictAdd(dict *d, void *key, void *val)
     return DICT_OK;
 }
 
+#ifdef USE_PMDK
+/* Add an element to the target hash table */
+int dictAddPM(dict *d, void *key, void *val)
+{
+    dictEntry *entry = dictAddRawPM(d,key,NULL);
+
+    if (!entry) return DICT_ERR;
+    dictSetVal(d, entry, val);
+    return DICT_OK;
+}
+
+/* Low level add or find:
+ * This function adds the entry but instead of setting a value returns the
+ * dictEntry structure to the user, that will make sure to fill the value
+ * field as he wishes.
+ *
+ * This function is also directly exposed to the user API to be called
+ * mainly in order to store non-pointers inside the hash value, example:
+ *
+ * entry = dictAddRaw(dict,mykey,NULL);
+ * if (entry != NULL) dictSetSignedIntegerVal(entry,1000);
+ *
+ * Return values:
+ *
+ * If key already exists NULL is returned, and "*existing" is populated
+ * with the existing entry if existing is not NULL.
+ *
+ * If key was added, the hash entry is returned to be manipulated by the caller.
+ */
+dictEntry *dictAddRawPM(dict *d, void *key, dictEntry **existing)
+{
+    long index;
+    dictEntry *entry;
+    dictht *ht;
+
+    if (dictIsRehashing(d)) _dictRehashStep(d);
+
+    /* Get the index of the new element, or -1 if
+     * the element already exists. */
+    if ((index = _dictKeyIndex(d, key, dictHashKey(d,key), existing)) == -1)
+        return NULL;
+
+    /* Allocate the memory and store the new entry.
+     * Insert the element in top, with the assumption that in a database
+     * system it is more likely that recently added entries are accessed
+     * more frequently. */
+    ht = dictIsRehashing(d) ? &d->ht[1] : &d->ht[0];
+    PMEMoid oid;
+    oid = pmemobj_tx_alloc(sizeof(*entry), 3);
+    entry = pmemobj_direct(oid);
+    entry->next = ht->table[index];
+    ht->table[index] = entry;
+    ht->used++;
+
+    /* Set the hash entry fields. */
+    dictSetKey(d, entry, key);
+    return entry;
+}
+#endif
+
 /* Low level add or find:
  * This function adds the entry but instead of setting a value returns the
  * dictEntry structure to the user, that will make sure to fill the value

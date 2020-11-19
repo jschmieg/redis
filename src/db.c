@@ -177,8 +177,13 @@ robj *lookupKeyWriteOrReply(client *c, robj *key, robj *reply) {
  *
  * The program is aborted if the key already exists. */
 void dbAdd(redisDb *db, robj *key, robj *val) {
+    #ifdef USE_PMDK
+    sds copy = sdsdupPM(key->ptr);
+    int retval = dictAddPM(db->dict, copy, val);
+    #else
     sds copy = sdsdup(key->ptr);
     int retval = dictAdd(db->dict, copy, val);
+    #endif
 
     serverAssertWithInfo(NULL,key,retval == DICT_OK);
     if (val->type == OBJ_LIST ||
@@ -242,6 +247,12 @@ void dbOverwrite(redisDb *db, robj *key, robj *val) {
  * The client 'c' argument may be set to NULL if the operation is performed
  * in a context where there is no clear client performing the operation. */
 void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, int signal) {
+    #ifdef USE_PMDK
+    robj* newVal;
+    newVal = dupStringObjectPM(val);
+    decrRefCount(val);
+    val = newVal;
+    #endif
     if (lookupKeyWrite(db,key) == NULL) {
         dbAdd(db,key,val);
     } else {

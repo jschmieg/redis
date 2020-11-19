@@ -216,9 +216,15 @@ static inline void sdssetalloc(sds s, size_t newlen) {
 }
 
 sds sdsnewlen(const void *init, size_t initlen);
+#ifdef USE_PMDK
+sds sdsnewlenPM(const void *init, size_t initlen);
+#endif
 sds sdsnew(const char *init);
 sds sdsempty(void);
 sds sdsdup(const sds s);
+#ifdef USE_PMDK
+sds sdsdupPM(const sds s);
+#endif
 void sdsfree(sds s);
 sds sdsgrowzero(sds s, size_t len);
 sds sdscatlen(sds s, const void *t, size_t len);

@@ -141,9 +141,16 @@ void setCommand(client *c) {
             return;
         }
     }
-
+#ifdef USE_PMDK
+/* Start transaction here*/
+/* Other option: just increment action counter without transaction*/
+    TX_BEGIN(server.pm_pool) {
+#endif
     c->argv[2] = tryObjectEncoding(c->argv[2]);
     setGenericCommand(c,flags,c->argv[1],c->argv[2],expire,unit,NULL,NULL);
+#ifdef USE_PMDK
+    } TX_END
+#endif
 }
 
 void setnxCommand(client *c) {
