@@ -153,6 +153,9 @@ dict *dictCreate(dictType *type, void *privDataPtr);
 dict *dictCreatePM(dictType *type, void *privDataPtr);
 #endif
 int dictExpand(dict *d, unsigned long size);
+#ifdef USE_PMDK
+int dictExpandPM(dict *d, unsigned long size);
+#endif
 int dictAdd(dict *d, void *key, void *val);
 #ifdef USE_PMDK
 int dictAddPM(dict *d, void *key, void *val);

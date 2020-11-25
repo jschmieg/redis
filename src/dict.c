@@ -67,8 +67,14 @@ static unsigned int dict_force_resize_ratio = 5;
 /* -------------------------- private prototypes ---------------------------- */
 
 static int _dictExpandIfNeeded(dict *ht);
+#ifdef USE_PMDK
+static int _dictExpandIfNeededPM(dict *ht);
+#endif
 static unsigned long _dictNextPower(unsigned long size);
 static long _dictKeyIndex(dict *ht, const void *key, uint64_t hash, dictEntry **existing);
+#ifdef USE_PMDK
+static long _dictKeyIndexPM(dict *ht, const void *key, uint64_t hash, dictEntry **existing);
+#endif
 static int _dictInit(dict *ht, dictType *type, void *privDataPtr);
 
 /* -------------------------- hash functions -------------------------------- */
@@ -172,7 +178,7 @@ int dictExpand(dict *d, unsigned long size)
 
     /* Allocate the new hash table and initialize all pointers to NULL */
     n.size = realsize;
-    n.sizemask = realsize-1;
+    n.sizemask = realsize-1;    
     n.table = zcalloc(realsize*sizeof(dictEntry*));
     n.used = 0;
 
@@ -188,6 +194,44 @@ int dictExpand(dict *d, unsigned long size)
     d->rehashidx = 0;
     return DICT_OK;
 }
+
+#ifdef USE_PMDK
+/* Expand or create the hash table */
+int dictExpandPM(dict *d, unsigned long size)
+{
+    /* the size is invalid if it is smaller than the number of
+     * elements already inside the hash table */
+    if (dictIsRehashing(d) || d->ht[0].used > size)
+        return DICT_ERR;
+
+    dictht n; /* the new hash table */
+    unsigned long realsize = _dictNextPower(size);
+
+    /* Rehashing to the same table size is not useful. */
+    if (realsize == d->ht[0].size) return DICT_ERR;
+
+    /* Allocate the new hash table and initialize all pointers to NULL */
+    n.size = realsize;
+    n.sizemask = realsize-1;
+    PMEMoid p;
+    p = pmemobj_tx_zalloc(realsize*sizeof(dictEntry*), 5);
+    printf("dictExpandPM = %p\n", pmemobj_direct(p));
+    n.table = pmemobj_direct(p);
+    n.used = 0;
+
+    /* Is this the first initialization? If so it's not really a rehashing
+     * we just set the first hash table so that it can accept keys. */
+    if (d->ht[0].table == NULL) {
+        d->ht[0] = n;
+        return DICT_OK;
+    }
+
+    /* Prepare a second hash table for incremental rehashing */
+    d->ht[1] = n;
+    d->rehashidx = 0;
+    return DICT_OK;
+}
+#endif
 
 /* Performs N steps of incremental rehashing. Returns 1 if there are still
  * keys to move from the old to the new hash table, otherwise 0 is returned.
@@ -232,7 +276,12 @@ int dictRehash(dict *d, int n) {
 
     /* Check if we already rehashed the whole table... */
     if (d->ht[0].used == 0) {
+        #ifdef USE_PMDK
+        PMEMoid p = pmemobj_oid(d->ht[0].table);
+        pmemobj_free(&p);
+        #elif
         zfree(d->ht[0].table);
+        #endif
         d->ht[0] = d->ht[1];
         _dictReset(&d->ht[1]);
         d->rehashidx = -1;
@@ -325,9 +374,9 @@ dictEntry *dictAddRawPM(dict *d, void *key, dictEntry **existing)
 
     /* Get the index of the new element, or -1 if
      * the element already exists. */
-    if ((index = _dictKeyIndex(d, key, dictHashKey(d,key), existing)) == -1)
+    if ((index = _dictKeyIndexPM(d, key, dictHashKey(d,key), existing)) == -1)
         return NULL;
-
+    //printf("index set=%d\n", index);
     /* Allocate the memory and store the new entry.
      * Insert the element in top, with the assumption that in a database
      * system it is more likely that recently added entries are accessed
@@ -559,6 +608,7 @@ dictEntry *dictFind(dict *d, const void *key)
     for (table = 0; table <= 1; table++) {
         idx = h & d->ht[table].sizemask;
         he = d->ht[table].table[idx];
+        //printf("get key idx=%ld\n",idx);
         while(he) {
             if (key==he->key || dictCompareKeys(d, key, he->key))
                 return he;
@@ -1046,6 +1096,30 @@ static int _dictExpandIfNeeded(dict *d)
     return DICT_OK;
 }
 
+#ifdef USE_PMDK
+/* Expand the hash table if needed */
+static int _dictExpandIfNeededPM(dict *d)
+{
+    /* Incremental rehashing already in progress. Return. */
+    if (dictIsRehashing(d)) return DICT_OK;
+
+    /* If the hash table is empty expand it to the initial size. */
+    if (d->ht[0].size == 0) return dictExpandPM(d, DICT_HT_INITIAL_SIZE);
+
+    /* If we reached the 1:1 ratio, and we are allowed to resize the hash
+     * table (global setting) or we should avoid it but the ratio between
+     * elements/buckets is over the "safe" threshold, we resize doubling
+     * the number of buckets. */
+    if (d->ht[0].used >= d->ht[0].size &&
+        (dict_can_resize ||
+         d->ht[0].used/d->ht[0].size > dict_force_resize_ratio))
+    {
+        return dictExpandPM(d, d->ht[0].used*2);
+    }
+    return DICT_OK;
+}
+#endif
+
 /* Our hash table capability is a power of two */
 static unsigned long _dictNextPower(unsigned long size)
 {
@@ -1090,6 +1164,40 @@ static long _dictKeyIndex(dict *d, const void *key, uint64_t hash, dictEntry **e
     }
     return idx;
 }
+#ifdef USE_PMDK
+/* Returns the index of a free slot that can be populated with
+ * a hash entry for the given 'key'.
+ * If the key already exists, -1 is returned
+ * and the optional output parameter may be filled.
+ *
+ * Note that if we are in the process of rehashing the hash table, the
+ * index is always returned in the context of the second (new) hash table. */
+static long _dictKeyIndexPM(dict *d, const void *key, uint64_t hash, dictEntry **existing)
+{
+    unsigned long idx, table;
+    dictEntry *he;
+    if (existing) *existing = NULL;
+
+    /* Expand the hash table if needed */
+    if (_dictExpandIfNeededPM(d) == DICT_ERR)
+        return -1;
+    for (table = 0; table <= 1; table++) {
+        idx = hash & d->ht[table].sizemask;
+        /* Search if this slot does not already contain the given key */
+        he = d->ht[table].table[idx];
+        while(he) {
+            if (key==he->key || dictCompareKeys(d, key, he->key)) {
+                if (existing) *existing = he;
+                return -1;
+            }
+            he = he->next;
+        }
+        if (!dictIsRehashing(d)) break;
+    }
+    //printf("idx=%ld\n",idx);
+    return idx;
+}
+#endif
 
 void dictEmpty(dict *d, void(callback)(void*)) {
     _dictClear(d,&d->ht[0],callback);
