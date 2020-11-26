@@ -250,7 +250,7 @@ void genericSetKey(client *c, redisDb *db, robj *key, robj *val, int keepttl, in
     #ifdef USE_PMDK
     robj* newVal;
     newVal = dupStringObjectPM(val);
-    decrRefCount(val);
+    freeStringObject(val->ptr);
     val = newVal;
     #endif
     if (lookupKeyWrite(db,key) == NULL) {
